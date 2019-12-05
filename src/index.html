@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Test 2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="row mt-5">
+                <div class="col-12 col-md-auto mt-2">
+                    <button class="btn btn-primary" type="button" @click="generateData" :disabled="buttonGenerateData">
+                        <span class="spinner-border spinner-border-sm" v-if="buttonGenerateData"></span>
+                        {{!buttonGenerateData ? 'Generate 5 data' : 'Loading'}}
+                    </button>
+                </div>
+                <div class="col-12 col-md-auto mt-2">
+                    <button class="btn btn-success" type="button" @click="toggleTable = !toggleTable">{{toggleTable ? 'PIVOT' : 'RAW TABLE'}}</button>
+                </div>
+                <div class="col-12 mt-2" v-if="toggleTable">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fullname</th>
+                                    <th>Email</th>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Total Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="row in table.data">
+                                    <td>{{row.id}}</td>
+                                    <td>{{row.fullname}}</td>
+                                    <td>{{row.email}}</td>
+                                    <td>{{row.item}}</td>
+                                    <td>{{row.quantity}}</td>
+                                    <td>{{row.total_price}}</td>
+                                </tr>
+                                <tr v-if="table.data.length <= 0">
+                                    <td colspan="6" class="text-center">
+                                        Data not found
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-12 mt-2" v-if="!toggleTable">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th v-for="item in header" :key="item">{{item}}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="data in pivotTable.data" :key="data.email">
+                                    <td>{{data.fullname}}</td>
+                                    <td>{{data.email}}</td>
+                                    <td v-for="item in header" :key="item">{{data[item]}}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center" colspan="2" v-if="pivotTable.data.length <= 0">
+                                        Data not found
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let app = new Vue({
+            el: document.getElementById('app'),
+            mounted() {
+                this.getDataRaw();
+                this.getDataPivot();
+            },
+            data() {
+                return {
+                    buttonGenerateData: false,
+                    toggleTable: true,
+                    table: {
+                        data: []
+                    },
+                    pivotTable: {
+                        data: [],
+                    }
+                }
+            },
+            computed: {
+                header() {
+                    if (this.pivotTable.data.length <= 0) {
+                        return [];
+                    }
+                    let keys = Object.keys(this.pivotTable.data[0]);
+                    let newKeys = keys.filter(key => {
+                        let filter = ['fullname', 'email'];
+                        if (!filter.includes(key)) {
+                            return key
+                        }
+                    })
+
+                    let collater = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+                    return newKeys.sort(collater.compare);
+                }
+            },
+            methods: {
+                getDataPivot() {
+                    axios.get('/getDataPivot').then(response => {
+                        response = response.data;
+                        if (response.success) {
+                            app.pivotTable.data = response.data;
+                        }
+                    })
+                },
+                getDataRaw() {
+                    axios.get('/getDataRaw').then(response => {
+                        response = response.data;
+                        if (response.success) {
+                            app.table.data = response.data;
+                        }
+                    })
+                },
+                generateData() {
+                    this.buttonGenerateData = true;
+                    axios.get('/generateData').then(response => {
+                        response = response.data;
+                        if (response.success) {
+                            alert('Success add data');
+                            this.buttonGenerateData = false;
+                            this.getDataPivot();
+                            this.getDataRaw();
+                        } else {
+                            alert('Failed add data');
+                        }
+                    })
+                }
+            },
+        })
+    </script>
+</body>
+
+</html>
